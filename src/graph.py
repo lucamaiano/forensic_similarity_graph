@@ -1,8 +1,9 @@
-import igraph
+import networkx as nx
 import forensic_similarity as forsim  # forensic similarity tool
 from src.utils.blockimage import tile_image  # function to tile image into blocks
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 
 class ForensicGraph():
@@ -15,10 +16,11 @@ class ForensicGraph():
                 """
         assert patch_size in [256, 128] and overlap < 1.0
 
-        self.graph = igraph.Graph()
+        self.graph = nx.Graph()
         self.patch_size = 256
         self.overlap = int(patch_size * overlap)
         self.model_weights = model_weights  # path to pretrained CNN weights
+        self.similarity_matrix = None
 
     def random_tiles(self, tiles, N=100):
         """ Randomly select N tiles. Returns the selected patches and their corresponding indices.
@@ -31,10 +33,10 @@ class ForensicGraph():
         inds = np.random.randint(0, len(tiles), size=N)  # select random indices
         rand_tiles = tiles[inds]  # vector of randomly selected image tiles
 
-        return rand_tiles, inds # Patches, indices
+        return rand_tiles, inds  # Patches, indices
 
-    def add_edges(self, forensic_similarity, ind0, ind1, threshold=None):
-        """ An new edges to the graph.
+    def forensic_similarity_matrix(self, forensic_similarity, ind0, ind1, threshold=None):
+        """ Construct the forensic similarity matrix and add new edges to the graph.
             Args:
                 forensic_similarity (list): forensic similarity values.
                 ind0 (list): patch indices of the first image.
@@ -44,12 +46,18 @@ class ForensicGraph():
         assert len(forensic_similarity) == len(ind0) and len(ind0) == len(ind1)
         assert threshold is None or threshold <= 1.0
 
+        W_matrix = np.zeros((np.max(ind0), np.max(ind1)))
         edges = []
         for indx in range(len(forensic_similarity)):
             if threshold is None or forensic_similarity[indx] >= threshold:
-                edges.append((ind0[indx], ind1[indx]))
-        print(edges)
-        self.graph.add_edges(edges)
+                indx0 = ind0[indx] - 1
+                indx1 = ind1[indx] - 1
+                W_matrix[indx0][indx1] = forensic_similarity[indx]
+
+                edges.append((ind0[indx], ind1[indx], forensic_similarity[indx]))
+
+        self.similarity_matrix = W_matrix
+        self.graph.add_weighted_edges_from(edges)
 
 
 if __name__ == '__main__':
@@ -84,10 +92,11 @@ if __name__ == '__main__':
 
     """ 3) Convert the image into its graph representation """
     graph = fs_graph.graph
-    graph.add_vertices(len(sim_0_1))
-    fs_graph.add_edges(sim_0_1, ind0, ind1, filter=0.9)
-    layout = graph.layout("kk")
-    print(graph)
+    fs_graph.forensic_similarity_matrix(sim_0_1, ind0, ind1, threshold=0.9)
+    kamada_kawai = nx.kamada_kawai_layout(graph)
+    nx.draw(graph, with_labels=True, font_weight='bold')
+    plt.show()
+
 
 
     """ 4) Perform forgery detection/localization """
