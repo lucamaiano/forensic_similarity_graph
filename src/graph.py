@@ -108,7 +108,7 @@ class ForensicGraph():
         modularity_optim = self.graph.community_fastgreedy(self.graph.es['weight'])
         print(f"Q_opt = {modularity_optim.optimal_count}")
 
-        return modularity_optim.optimal_count >= threshold, modularity_optim
+        return modularity_optim.optimal_count >= threshold, modularity_optim.as_clustering().membership
 
     def visualize_graph(self, membership):
         # out_fig_name = "../output/graph.png"
@@ -185,9 +185,11 @@ if __name__ == '__main__':
     # 4 A) spectral clustering
     lambda2, u2 = fs_graph.spectral_clustering(10)
     print(f'Forged = {lambda2}')
+    print(u2)
     # fs_graph.visualize_graph(u2)
 
     # 4 B) modularity optimization
     q_opt, modularity_optim = fs_graph.modularity_optimization(2)
     print(f'Forged = {q_opt}')
+    print(modularity_optim)
     # fs_graph.visualize_graph(modularity_optim)
