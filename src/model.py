@@ -15,17 +15,17 @@ def max_pooling(x, name, k_size=[1, 3, 3, 1], stride=[1, 2, 2, 1]):
     return tf.nn.max_pool(x, ksize=k_size, strides=stride, padding='VALID',name=name)
 
 def weight_variables(name, shape):
-    return tf.get_variable(name=name, shape=shape, dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
+    return tf.compat.v1.get_variable(name=name, shape=shape, dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
 
 def bias_variables(name, shape,ini_val=0):
-    return tf.get_variable(name=name, shape=shape, dtype=tf.float32, initializer=tf.constant_initializer(ini_val))
+    return tf.compat.v1.get_variable(name=name, shape=shape, dtype=tf.float32, initializer=tf.constant_initializer(ini_val))
 
 def batch_norm(input, phase):
     return tf.layers.batch_normalization(input, axis=-1, center=True,scale=True, training=phase)
 
 #MISLNet 256x256 version
 def MISLNet(x,phase,nprefilt=3,reuse=False):
-    with tf.variable_scope('MISLNet',reuse=reuse) as scope:
+    with tf.compat.v1.variable_scope('MISLNet',reuse=reuse) as scope:
         w_constr = weight_variables(name='weights_cstr', shape=[5, 5, 3, nprefilt])
         constr_output = conv2d(x, w_constr, pad='VALID')
 
@@ -64,18 +64,18 @@ def MISLNet(x,phase,nprefilt=3,reuse=False):
         reshaped_output = tf.reshape(conv4_output, [-1, 6 * 6 * 128]) #should figure out how to calculate this dimension
 
         w_fc1 = weight_variables(name="weights_d1", shape=[6 * 6 * 128, 200])
-        b_fc1 = tf.get_variable(name='bias_d1', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
+        b_fc1 = tf.compat.v1.get_variable(name='bias_d1', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
         fc1 = tf.nn.tanh(tf.add(tf.matmul(reshaped_output, w_fc1), b_fc1),name='dense1_out')
 
         w_fc2 = weight_variables(name='weights_d2', shape=[200, 200])
-        b_fc2 = tf.get_variable(name='bias_d2', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
+        b_fc2 = tf.compat.v1.get_variable(name='bias_d2', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
         fc2 = tf.nn.tanh(tf.add(tf.matmul(fc1, w_fc2), b_fc2),name='dense2_out')
 
     return fc2
 
 #MISLNet 128x128 version
 def MISLNet128(x,phase,nprefilt=3,reuse=False):
-    with tf.variable_scope('MISLNet',reuse=reuse) as scope:
+    with tf.compat.v1.variable_scope('MISLNet',reuse=reuse) as scope:
         w_constr = weight_variables(name='weights_cstr', shape=[5, 5, 3, nprefilt])
         constr_output = conv2d(x, w_constr, pad='VALID')
 
@@ -114,11 +114,11 @@ def MISLNet128(x,phase,nprefilt=3,reuse=False):
         reshaped_output = tf.reshape(conv4_output, [-1, 2 * 2 * 128]) #should figure out how to calculate this dimension
 
         w_fc1 = weight_variables(name="weights_d1", shape=[2 * 2 * 128, 200])
-        b_fc1 = tf.get_variable(name='bias_d1', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
+        b_fc1 = tf.compat.v1.get_variable(name='bias_d1', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
         fc1 = tf.nn.tanh(tf.add(tf.matmul(reshaped_output, w_fc1), b_fc1),name='dense1_out')
 
         w_fc2 = weight_variables(name='weights_d2', shape=[200, 200])
-        b_fc2 = tf.get_variable(name='bias_d2', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
+        b_fc2 = tf.compat.v1.get_variable(name='bias_d2', shape=[200], dtype=tf.float32, initializer=tf.constant_initializer(0))
         fc2 = tf.nn.tanh(tf.add(tf.matmul(fc1, w_fc2), b_fc2),name='dense2_out')
 
     return fc2
@@ -130,25 +130,25 @@ def Similarity_256(x1,x2,phase,nprefilt=6,nb12=2048,nb3=64):
 	MISL_output1 = MISLNet(x1, phase, nprefilt=nprefilt,reuse=False) #feature extractor for patch 1
 	MISL_output2 = MISLNet(x2, phase, nprefilt=nprefilt,reuse=True) #feature extractor for patch 2, with same weights as 1
 
-	with tf.variable_scope('CompareNet') as scope:
+	with tf.compat.v1.variable_scope('CompareNet') as scope:
 
 		w_fcb1 = weight_variables(name="weights_fcb1", shape=[200, nb12])
-		b_fcb1 = tf.get_variable(name='bias_fcb1', shape=[nb12], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_fcb1 = tf.compat.v1.get_variable(name='bias_fcb1', shape=[nb12], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		fcb1 = tf.nn.relu(tf.add(tf.matmul(MISL_output1, w_fcb1), b_fcb1),name='fcb1_out')
-		fcb1_drop = tf.nn.dropout(fcb1,0.5)
+		fcb1_drop = tf.nn.dropout(fcb1,rate=0.5)
 
 		fcb2 = tf.nn.relu(tf.add(tf.matmul(MISL_output2, w_fcb1), b_fcb1),name='fcb2_out')
-		fcb2_drop = tf.nn.dropout(fcb2,0.5)
+		fcb2_drop = tf.nn.dropout(fcb2,rate=0.5)
 		
 		fcb1b2_mult = tf.multiply(fcb1,fcb2,name='fcb1b2_mult')
 		fcb1b2_concat = tf.concat([fcb1,fcb1b2_mult,fcb2],1)
 
 		w_fcb3 = weight_variables(name="weights_fcb3", shape=[nb12*3, nb3])
-		b_fcb3 = tf.get_variable(name='bias_fcb3', shape=[nb3], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_fcb3 = tf.compat.v1.get_variable(name='bias_fcb3', shape=[nb3], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		fcb3 = tf.nn.relu(tf.add(tf.matmul(fcb1b2_concat, w_fcb3), b_fcb3),name='fcb3_out')
 
 		w_out = weight_variables(name="weights_out", shape=[nb3, 2])
-		b_out = tf.get_variable(name='bias_out', shape=[2], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_out = tf.compat.v1.get_variable(name='bias_out', shape=[2], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		output = tf.matmul(fcb3, w_out) + b_out
 
 	return output
@@ -159,25 +159,25 @@ def Similarity_128(x1,x2,phase,nprefilt=6,nb12=2048,nb3=64):
 	MISL_output1 = MISLNet128(x1, phase, nprefilt=nprefilt,reuse=False) #feature extractor for patch 1
 	MISL_output2 = MISLNet128(x2, phase, nprefilt=nprefilt,reuse=True) #feature extractor for patch 2, with same weights as 1
 
-	with tf.variable_scope('CompareNet') as scope:
+	with tf.compat.v1.variable_scope('CompareNet') as scope:
 
 		w_fcb1 = weight_variables(name="weights_fcb1", shape=[200, nb12])
-		b_fcb1 = tf.get_variable(name='bias_fcb1', shape=[nb12], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_fcb1 = tf.compat.v1.get_variable(name='bias_fcb1', shape=[nb12], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		fcb1 = tf.nn.relu(tf.add(tf.matmul(MISL_output1, w_fcb1), b_fcb1),name='fcb1_out')
-		fcb1_drop = tf.nn.dropout(fcb1,0.5)
+		fcb1_drop = tf.nn.dropout(fcb1,rate=0.5)
 
 		fcb2 = tf.nn.relu(tf.add(tf.matmul(MISL_output2, w_fcb1), b_fcb1),name='fcb2_out')
-		fcb2_drop = tf.nn.dropout(fcb2,0.5)
+		fcb2_drop = tf.nn.dropout(fcb2,rate=0.5)
 		
 		fcb1b2_mult = tf.multiply(fcb1,fcb2,name='fcb1b2_mult')
 		fcb1b2_concat = tf.concat([fcb1,fcb1b2_mult,fcb2],1)
 
 		w_fcb3 = weight_variables(name="weights_fcb3", shape=[nb12*3, nb3])
-		b_fcb3 = tf.get_variable(name='bias_fcb3', shape=[nb3], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_fcb3 = tf.compat.v1.get_variable(name='bias_fcb3', shape=[nb3], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		fcb3 = tf.nn.relu(tf.add(tf.matmul(fcb1b2_concat, w_fcb3), b_fcb3),name='fcb3_out')
 
 		w_out = weight_variables(name="weights_out", shape=[nb3, 2])
-		b_out = tf.get_variable(name='bias_out', shape=[2], dtype=tf.float32, initializer=tf.constant_initializer(0))
+		b_out = tf.compat.v1.get_variable(name='bias_out', shape=[2], dtype=tf.float32, initializer=tf.constant_initializer(0))
 		output = tf.matmul(fcb3, w_out) + b_out
 
 	return output

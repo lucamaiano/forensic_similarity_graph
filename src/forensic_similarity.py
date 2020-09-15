@@ -53,18 +53,18 @@ def calculate_forensic_similarity(X1, X2, f_pretrained_weights, patch_size, batc
 	else:
 	    raise TypeError('Unsupported patch size {}'.format(patch_size))
 
-	tf.reset_default_graph()
+	tf.compat.v1.reset_default_graph()
 	
     #PLACE HOLDERS
-	tf_x1 = tf.placeholder(tf.float32, shape=[None,patch_size,patch_size,3], name='input_data1')
-	tf_x2 = tf.placeholder(tf.float32, shape=[None,patch_size,patch_size,3], name='input_data2')
-	MISL_phase =tf.placeholder(tf.bool, name='phase')
+	tf_x1 = tf.compat.v1.placeholder(tf.float32, shape=[None,patch_size,patch_size,3], name='input_data1')
+	tf_x2 = tf.compat.v1.placeholder(tf.float32, shape=[None,patch_size,patch_size,3], name='input_data2')
+	MISL_phase =tf.compat.v1.placeholder(tf.bool, name='phase')
 	#CREATE NETWORK
 	compare_output = SimilarityNetwork(tf_x1,tf_x2,MISL_phase)
 	#initialize saver
-	mislnet_restore = tf.train.Saver()
+	mislnet_restore = tf.compat.v1.train.Saver()
 
-	with tf.Session() as sess:
+	with tf.compat.v1.Session() as sess:
 	    mislnet_restore.restore(sess,f_pretrained_weights) #load pretrained network
 	    similarity = calculate_forensic_similarity_insession(X1, X2, patch_size, sess, compare_output,
 								 tf_x1, tf_x2, MISL_phase, batch_size = batch_size, quiet = quiet)

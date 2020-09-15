@@ -1,9 +1,10 @@
 import networkx as nx
+from scipy import sparse
+
 import forensic_similarity as forsim  # forensic similarity tool
 from src.utils.blockimage import tile_image  # function to tile image into blocks
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 
 class ForensicGraph():
@@ -17,7 +18,7 @@ class ForensicGraph():
         assert patch_size in [256, 128] and overlap < 1.0
 
         self.graph = nx.Graph()
-        self.patch_size = 256
+        self.patch_size = patch_size
         self.overlap = int(patch_size * overlap)
         self.model_weights = model_weights  # path to pretrained CNN weights
         self.similarity_matrix = None
@@ -25,7 +26,7 @@ class ForensicGraph():
     def random_tiles(self, tiles, N=100):
         """ Randomly select N tiles. Returns the selected patches and their corresponding indices.
             Args:
-                tiles (list): the list of i.e. patches.
+                tiles (list): the list of tiles i.e. patches.
                 N (int): number of patches that you want to randomly select.
                 """
         assert len(tiles.shape) == 4
@@ -35,7 +36,26 @@ class ForensicGraph():
 
         return rand_tiles, inds  # Patches, indices
 
-    def forensic_similarity_matrix(self, forensic_similarity, ind0, ind1, threshold=None):
+    def dense_tiles(self, t0, t1):
+        """ Generate (n^2-n)/2 pairs of tiles.
+            Args:
+                t0 (list): the list of tiles i.e. patches.
+                t1 (list): the list of i.e. patches.
+                """
+        assert len(t0.shape) == 4 and len(t1.shape) == 4
+
+        inds0 = np.array([])
+        inds1 = np.array([])
+        for idx1 in range(len(t1)):
+            inds0 = np.append(inds0, [idx0 for idx0 in range(len(t0))]).astype(int)
+            inds1 = np.append(inds1, np.ones(len(t0), int)*idx1).astype(int)
+
+        tiles0 = t0[inds0]
+        tiles1 = t1[inds1]
+
+        return tiles0, inds0, tiles1, inds1  # Patches, indices
+
+    def forensic_similarity_matrix(self, forensic_similarity, ind0, ind1, threshold=0):
         """ Construct the forensic similarity matrix and add new edges to the graph.
             Args:
                 forensic_similarity (list): forensic similarity values.
@@ -44,30 +64,51 @@ class ForensicGraph():
                 threshold (float): similarity threshold. Edges with forensic_similarity < threshold are discarded. Default is None.
                 """
         assert len(forensic_similarity) == len(ind0) and len(ind0) == len(ind1)
-        assert threshold is None or threshold <= 1.0
+        assert threshold is 0 and threshold <= 1.0
 
         W_matrix = np.zeros((np.max(ind0), np.max(ind1)))
         edges = []
         for indx in range(len(forensic_similarity)):
-            if threshold is None or forensic_similarity[indx] >= threshold:
-                indx0 = ind0[indx] - 1
-                indx1 = ind1[indx] - 1
+            indx0 = ind0[indx] - 1
+            indx1 = ind1[indx] - 1
+            if forensic_similarity[indx] >= threshold:
                 W_matrix[indx0][indx1] = forensic_similarity[indx]
-
                 edges.append((ind0[indx], ind1[indx], forensic_similarity[indx]))
+            else:
+                edges.append((ind0[indx], ind1[indx], 0))
 
         self.similarity_matrix = W_matrix
         self.graph.add_weighted_edges_from(edges)
 
+    def spectral_clustering(self, threshold=100):
+        # normal_laplacian = nx.normalized_laplacian_matrix(self.graph)
+        # eigenvalues = nx.normalized_laplacian_spectrum(self.graph)
+        eigenvalues = nx.laplacian_spectrum(self.graph)
+        lambda_2 = sorted(list(set(eigenvalues)))[1]
+
+        return lambda_2 < threshold, lambda_2
+
+    # def modularity_optimization(self, threshold=100):
+    #     # normal_laplacian = nx.normalized_laplacian_matrix(self.graph)
+    #     # eigenvalues = nx.normalized_laplacian_spectrum(self.graph)
+    #     localization = list(nx.algorithms.community.greedy_modularity_communities(self.graph))
+    #
+    #     return lambda_2 < threshold, modularity_optim
+
+
+
 
 if __name__ == '__main__':
     # Initiate a new forensic similarity graph
-    fs_graph = ForensicGraph(patch_size=256, overlap=0.5)
+    fs_graph = ForensicGraph(patch_size=256, overlap=0.5, model_weights='../model/cam_256x256/-30')
 
     """ 0) Load images """
-    I0 = plt.imread('../data/0_google_pixel_1.jpg')
-    I1 = plt.imread('../data/1_google_pixel_1.jpg')
-    I2 = plt.imread('../data/2_asus_zenphone_laser.jpg')
+    I0 = plt.imread('../data/columbia/4cam_auth/canong3_02_sub_01.tif')
+    I1 = plt.imread('../data/columbia/4cam_auth/canong3_02_sub_02.tif')
+    I2 = plt.imread('../data/columbia/4cam_splc/canong3_canonxt_sub_01.tif')
+    # image0 and image1 are from the same camera model, and have high forensic similarity
+    # image0 and image2 are from different camera models, and have low forensic similarity
+    # image1 and image2 are from different camera models, and have low forensic similarity
 
     # patches and xy coordinates of each patch for images 0, 1 and 2
     T0, xy0 = tile_image(I0, width=fs_graph.patch_size, height=fs_graph.patch_size, x_overlap=fs_graph.overlap,
@@ -78,25 +119,32 @@ if __name__ == '__main__':
                          y_overlap=fs_graph.overlap)
 
     """ 1) Sample N patches from the images """
-    X0, ind0 = fs_graph.random_tiles(T0, N=1000)
-    X1, ind1 = fs_graph.random_tiles(T1, N=1000)
-    X2, ind2 = fs_graph.random_tiles(T2, N=1000)
+    # X0, ind0 = fs_graph.random_tiles(T0, N=5000)
+    # X1, ind1 = fs_graph.random_tiles(T1, N=5000)
+    # X2, ind2 = fs_graph.random_tiles(T2, N=5000)
+    X0, ind0, X2, ind2 = fs_graph.dense_tiles(T0, T1)
 
     """ 2) Calculate forensic similarity between all pairs od sampled patches """
-    sim_0_1 = forsim.calculate_forensic_similarity(X0, X1, fs_graph.model_weights,
-                                                   fs_graph.patch_size)  # between tiles from image 0 and image 1
-    # sim_0_2 = forsim.calculate_forensic_similarity(X0, X2, fs_graph.model_weights,
-    #                                                fs_graph.patch_size)  # between tiles from image 0 and image 2
+    # sim_0_1 = forsim.calculate_forensic_similarity(X0, X1, fs_graph.model_weights,
+    #                                                fs_graph.patch_size)  # between tiles from image 0 and image 1
+    sim_0_2 = forsim.calculate_forensic_similarity(X0, X2, fs_graph.model_weights,
+                                                   fs_graph.patch_size)  # between tiles from image 0 and image 2
     # sim_1_2 = forsim.calculate_forensic_similarity(X1, X2, fs_graph.model_weights,
     #                                                 fs_graph.patch_size)  # between tiles from image 1 and image 2
 
     """ 3) Convert the image into its graph representation """
     graph = fs_graph.graph
-    fs_graph.forensic_similarity_matrix(sim_0_1, ind0, ind1, threshold=0.9)
-    kamada_kawai = nx.kamada_kawai_layout(graph)
+    fs_graph.forensic_similarity_matrix(sim_0_2, ind0, ind2, threshold=0)
+    #kamada_kawai = nx.kamada_kawai_layout(graph)
     nx.draw(graph, with_labels=True, font_weight='bold')
     plt.show()
 
-
-
     """ 4) Perform forgery detection/localization """
+    # 4 A) spectral clustering
+    forged, lambda_2 = fs_graph.spectral_clustering(100)
+    print(f'Foreged = {forged}')
+    print(nx.fiedler_vector(graph))
+
+    # 4 B) modularity optimization
+    modularity_optim = list(nx.algorithms.community.greedy_modularity_communities(graph))
+    print(list(modularity_optim))
