@@ -4,3 +4,7 @@
 src/__pycache__/
 
 data/
+
+notebook/examples/
+
+output/
