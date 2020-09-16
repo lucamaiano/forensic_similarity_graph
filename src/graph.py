@@ -1,8 +1,4 @@
-import networkx as nx
 import igraph
-import forensic_similarity as forsim  # forensic similarity tool
-from src.utils.blockimage import tile_image  # function to tile image into blocks
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.linalg
 
@@ -74,17 +70,28 @@ class ForensicGraph():
         W_matrix = np.zeros((np.max(ind0), np.max(ind1)))
         edges = []
         weights = []
+        vertices = set()
         for indx in range(len(forensic_similarity)):
             indx0 = ind0[indx] - 1
             indx1 = ind1[indx] - 1
 
+            # Add vertices to the list
+            if ind0[indx] not in vertices:
+                vertices.add(ind0[indx])
+            if ind1[indx] not in vertices:
+                vertices.add(ind1[indx])
+
+            # Skip edges betweeen single nodes, i.e. (vi, vi)
             if same and ind0[indx] == ind1[indx]:
                 continue
+
+            # Add a new edge if not in the graph
             if (ind0[indx], ind1[indx]) not in edges and (ind1[indx], ind0[indx]) not in edges:
                 edges.append((ind0[indx], ind1[indx]))
             else:
                 continue
 
+            # Add weights
             if forensic_similarity[indx] >= threshold:
                 W_matrix[indx0][indx1] = forensic_similarity[indx]
                 weights.append(forensic_similarity[indx])
@@ -94,102 +101,57 @@ class ForensicGraph():
         self.similarity_matrix = W_matrix
         self.graph.add_edges(edges)
         self.graph.es['weight'] = weights
+        self.graph.vs['patch'] = sorted(list(vertices))
 
     def spectral_clustering(self, threshold=10):
+        """ Calculate spectral clustering.
+            Args:
+                threshold (int/float): the threshold used to decide whether a patch is authentic or manipulated. Default is 10.
+                """
         laplacian_matrix = np.array(self.graph.laplacian(self.graph.es['weight'], False))
         eigvals, eigvecs = numpy.linalg.eig(laplacian_matrix)
         print(f"lambda_2 = {float(eigvals[1])}")
 
+        membership = [0 if vec >= 0 else 1 for vec in eigvecs[1]]
 
-        return eigvals[1] < threshold, [0 if vec >= 0 else 1 for vec in eigvecs[1]]
+        return eigvals[1] < threshold, membership
 
 
     def modularity_optimization(self, threshold=2):
+        """ Construct the forensic similarity matrix and add new edges to the graph.
+            Args:
+                threshold (int/float): the threshold used to decide whether a patch is authentic or manipulated. Default is 10.
+            """
         modularity_optim = self.graph.community_fastgreedy(self.graph.es['weight'])
         print(f"Q_opt = {modularity_optim.optimal_count}")
 
-        return modularity_optim.optimal_count >= threshold, modularity_optim.as_clustering().membership
+        return modularity_optim.optimal_count >= threshold, modularity_optim.as_clustering()
 
-    def visualize_graph(self, membership):
-        # out_fig_name = "../output/graph.png"
-        # visual_style = {}
-        # # Define colors used for outdegree visualization
-        # colours = ['#fecc5c', '#a31a1c']
-        # # Set bbox and margin
+    def visualize_clusters(self, cluster, membership, clean=True):
+        """ Produce a visualization of the graph.
+            Args:
+                cluster (VertexClustering): an input cluster that you want to visualize.
+                membership (list): a list of memberships.
+                clean (bool): set True if you want to filter out irrelevant/low weights. Default is True.
+            """
+        visual_style = {}
+
+        # Define vertex colors
+        color_dict = {0: "green", 1: "red", 2: "grey"}
+        visual_style["vertex_color"] = [color_dict[k] for k in membership]
+        # Set bbox and margin
         # visual_style["bbox"] = (3000, 3000)
-        # visual_style["margin"] = 17
-        # # Set vertex colours
-        # visual_style["vertex_color"] = 'grey'
-        # # Set vertex size
-        # visual_style["vertex_size"] = 20
-        # # Set vertex lable size
-        # visual_style["vertex_label_size"] = 8
-        # # Don't curve the edges
-        # visual_style["edge_curved"] = False
-        # # Set the layout
-        # my_layout = self.graph.layout_kamada_kawai()
-        # visual_style["layout"] = my_layout
-        # # Plot the graph
-        # igraph.plot(self.graph, out_fig_name)
-        coords = self.graph.layout_kamada_kawai()
-        igraph.plot(self.graph, color=membership, layout=coords)
+        # visual_style["margin"] = 20
+        # Set vertex size
+        visual_style["vertex_size"] = 22
+        # Set vertex lable size
+        visual_style["vertex_label_size"] = 14
+        if clean:
+            # Set edges width
+            visual_style["edge_width"] = [2 * int(weight > 0.7) for weight in self.graph.es["weight"]]
+        # Set the layout
+        visual_style["layout"] = self.graph.layout_kamada_kawai()
 
+        self.graph.vs['label'] = self.graph.vs['patch']
+        igraph.plot(cluster, **visual_style)
 
-if __name__ == '__main__':
-    # Initiate a new forensic similarity graph
-    fs_graph = ForensicGraph(patch_size=256, overlap=0.5, model_weights='../model/cam_256x256/-30')
-
-    """ 0) Load images """
-    I0 = plt.imread('../data/columbia/4cam_auth/canong3_02_sub_01.tif')
-    I1 = plt.imread('../data/columbia/4cam_auth/canong3_02_sub_02.tif')
-    I2 = plt.imread('../data/columbia/4cam_splc/canong3_canonxt_sub_01.tif')
-    I3 = plt.imread('../data/columbia/4cam_splc/nikond70_kodakdcs330_sub_19.tif')
-    # image0 and image1 are from the same camera model, and have high forensic similarity
-    # image0 and image2 are from different camera models, and have low forensic similarity
-    # image1 and image2 are from different camera models, and have low forensic similarity
-
-    # patches and xy coordinates of each patch for images 0, 1 and 2
-    T0, xy0 = tile_image(I0, width=fs_graph.patch_size, height=fs_graph.patch_size, x_overlap=fs_graph.overlap,
-                         y_overlap=fs_graph.overlap)
-    T1, xy1 = tile_image(I1, width=fs_graph.patch_size, height=fs_graph.patch_size, x_overlap=fs_graph.overlap,
-                         y_overlap=fs_graph.overlap)
-    T2, xy2 = tile_image(I2, width=fs_graph.patch_size, height=fs_graph.patch_size, x_overlap=fs_graph.overlap,
-                         y_overlap=fs_graph.overlap)
-    T3, xy3 = tile_image(I3, width=fs_graph.patch_size, height=fs_graph.patch_size, x_overlap=fs_graph.overlap,
-                         y_overlap=fs_graph.overlap)
-
-    """ 1) Sample N patches from the images """
-    # X0, ind0 = fs_graph.random_tiles(T0, N=5000)
-    # X1, ind1 = fs_graph.random_tiles(T1, N=5000)
-    # X2, ind2 = fs_graph.random_tiles(T2, N=5000)
-
-    X0, ind0, X2, ind2 = fs_graph.dense_tiles(T2, T2)
-    # X0, ind0, X1, ind1 = fs_graph.dense_tiles(T0, T1)
-    # X1, ind1, X2, ind2 = fs_graph.dense_tiles(T1, T2)
-
-    """ 2) Calculate forensic similarity between all pairs od sampled patches """
-    # sim_0_1 = forsim.calculate_forensic_similarity(X0, X1, fs_graph.model_weights,
-    #                                                fs_graph.patch_size)  # between tiles from image 0 and image 1
-    sim_0_2 = forsim.calculate_forensic_similarity(X0, X2, fs_graph.model_weights,
-                                                   fs_graph.patch_size)  # between tiles from image 0 and image 2
-    # sim_1_2 = forsim.calculate_forensic_similarity(X1, X2, fs_graph.model_weights,
-    #                                                 fs_graph.patch_size)  # between tiles from image 1 and image 2
-
-    """ 3) Convert the image into its graph representation """
-    graph = fs_graph.graph
-    # fs_graph.forensic_similarity_matrix(sim_0_1, ind0, ind1, threshold=0)
-    fs_graph.forensic_similarity_matrix(sim_0_2, ind0, ind2, threshold=0)
-    # fs_graph.forensic_similarity_matrix(sim_1_2, ind1, ind2, threshold=0)
-
-    """ 4) Perform forgery detection/localization """
-    # 4 A) spectral clustering
-    lambda2, u2 = fs_graph.spectral_clustering(10)
-    print(f'Forged = {lambda2}')
-    print(u2)
-    # fs_graph.visualize_graph(u2)
-
-    # 4 B) modularity optimization
-    q_opt, modularity_optim = fs_graph.modularity_optimization(2)
-    print(f'Forged = {q_opt}')
-    print(modularity_optim)
-    # fs_graph.visualize_graph(modularity_optim)
