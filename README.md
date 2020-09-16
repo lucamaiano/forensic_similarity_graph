@@ -1,4 +1,4 @@
-# "Forensic Similarity Graph" 
+# Forensic Similarity Graph 
 The following is a non-official implementation of the work "Exposing Fake Images with Forensic Similarity Graphs" by Owen Mayer and Matthew C. Stamm, Deparment of Electrical and Computer Engineering Drexel University - Philadelphia, PA, USA. Part of the code is based on the [forensic similarity](http://omayer.gitlab.io/forensicsimilarity/) code base.
 
 
