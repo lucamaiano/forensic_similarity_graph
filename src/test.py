@@ -4,14 +4,17 @@ import forensic_similarity as forsim  # forensic similarity tool
 from src.utils.blockimage import tile_image  # function to tile image into blocks
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from scipy import interp
 import numpy as np
 import random
-from itertools import cycle
+import os
 
 
 def plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, name='../output/roc_curve.png', n_classes=2, lw=2):
-    plt.plot(fpr_spectral, tpr_spectral, label="Spectral ROC curve")
+    out_path = name.split(name.split('/')[-1])[0]
+    if not os.path.isdir(out_path):
+        os.makedirs(out_path)
+
+    #plt.plot(fpr_spectral, tpr_spectral, label="Spectral ROC curve")
     plt.plot(fpr_modularity, tpr_modularity, label="Modularity ROC curve")
     plt.plot([0, 1], [0, 1], 'k--', lw=lw)
     plt.xlim([0.0, 1.0])
@@ -34,8 +37,8 @@ if __name__ == '__main__':
 
     """ 0) Load images """
     test_imgs = list(glob.iglob(root_dir))
-
     random.shuffle(test_imgs)
+    #test_imgs = test_imgs[:100]
     processed = 0
     for test_img in test_imgs:
         # Initiate a new forensic similarity graph
@@ -44,8 +47,8 @@ if __name__ == '__main__':
         processed += 1
         print(f'Processed {processed} images of {len(test_imgs)}')
         print(f'Processing {test_img}...')
-        auth = '4cam_auth' in test_img
-        y_true = np.append(y_true, int(auth))
+        splc = '4cam_splc' in test_img
+        y_true = np.append(y_true, int(splc))
         img = plt.imread(test_img)
 
         # patches and xy coordinates of each patch for images 0, 1 and 2
@@ -79,7 +82,7 @@ if __name__ == '__main__':
         modularity_preds = np.append(modularity_preds, int(q_opt))
         #fs_graph.visualize_clusters(modularity_optim, modularity_optim.membership, clean=True)
 
-        print(f'True class = {auth}')
+        print(f'True class = {splc}')
 
     fpr_spectral, tpr_spectral, thresholds_spectral = metrics.roc_curve(y_true, spectral_preds, pos_label=1)
     auc_spectral = metrics.roc_auc_score(y_true, spectral_preds)
@@ -87,8 +90,10 @@ if __name__ == '__main__':
 
     fpr_modularity, tpr_modularity, thresholds_modularity = metrics.roc_curve(y_true, modularity_preds, pos_label=1)
     auc_modularity = metrics.roc_auc_score(y_true, modularity_preds)
-    print(f'Spectral\n fpr: {fpr_modularity}\n tpr: {tpr_modularity}\n tau: {thresholds_modularity}\n auc: {auc_modularity}')
+    print(f'Modularity\n fpr: {fpr_modularity}\n tpr: {tpr_modularity}\n tau: {thresholds_modularity}\n auc: {auc_modularity}')
 
     print(f"y_true: {y_true}")
+    print(f'spectral_preds: {spectral_preds}')
+    print(f'modularity_preds: {modularity_preds}')
 
-    plot_roc_curve(fpr_modularity, tpr_modularity, fpr_modularity, tpr_modularity, name='../output/roc_curve.png')
+    plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, name='../output/roc_curve.png')
