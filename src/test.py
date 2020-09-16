@@ -14,7 +14,7 @@ def plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, n
     if not os.path.isdir(out_path):
         os.makedirs(out_path)
 
-    #plt.plot(fpr_spectral, tpr_spectral, label="Spectral ROC curve")
+    plt.plot(fpr_spectral, tpr_spectral, label="Spectral ROC curve")
     plt.plot(fpr_modularity, tpr_modularity, label="Modularity ROC curve")
     plt.plot([0, 1], [0, 1], 'k--', lw=lw)
     plt.xlim([0.0, 1.0])
@@ -23,10 +23,8 @@ def plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, n
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic')
     plt.legend(loc="lower right")
-    plt.show()
     plt.savefig(name)
-
-
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -96,4 +94,4 @@ if __name__ == '__main__':
     print(f'spectral_preds: {spectral_preds}')
     print(f'modularity_preds: {modularity_preds}')
 
-    plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, name='../output/roc_curve.png')
+    plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, name='../output/roc_curve1.png')

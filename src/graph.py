@@ -1,7 +1,7 @@
 import igraph
 import numpy as np
 import numpy.linalg
-
+import os
 
 class ForensicGraph():
     def __init__(self, patch_size=256, overlap=0.5, model_weights='../model/cam_256x256/-30'):
@@ -127,13 +127,16 @@ class ForensicGraph():
 
         return modularity_optim.optimal_count >= threshold, modularity_optim.as_clustering()
 
-    def visualize_clusters(self, cluster, membership, clean=True):
+    def visualize_clusters(self, cluster, membership, out_file='../output/cluster.png', clean=True):
         """ Produce a visualization of the graph.
             Args:
                 cluster (VertexClustering): an input cluster that you want to visualize.
                 membership (list): a list of memberships.
                 clean (bool): set True if you want to filter out irrelevant/low weights. Default is True.
             """
+        out_path = out_file.split(out_file.split('/')[-1])[0]
+        if not os.path.isdir(out_path):
+            os.makedirs(out_path)
         visual_style = {}
 
         # Define vertex colors
@@ -153,5 +156,5 @@ class ForensicGraph():
         visual_style["layout"] = self.graph.layout_kamada_kawai()
 
         self.graph.vs['label'] = self.graph.vs['patch']
-        igraph.plot(cluster, **visual_style)
+        igraph.plot(cluster, out_file, **visual_style)
 

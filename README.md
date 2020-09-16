@@ -1,39 +1,38 @@
-# Source code for: "Forensic Similarity for Digital Images" 
-by Owen Mayer and Matthew C. Stamm  
-Deparment of Electrical and Computer Engineering  
-Drexel University - Philadelphia, PA, USA
+# "Forensic Similarity Graph" 
+The following is a non-official implementation of the work "Exposing Fake Images with Forensic Similarity Graphs" by Owen Mayer and Matthew C. Stamm, Deparment of Electrical and Computer Engineering Drexel University - Philadelphia, PA, USA. Part of the code is based on the [forensic similarity](http://omayer.gitlab.io/forensicsimilarity/) code base.
 
-Visit the [project webpage](http://omayer.gitlab.io/forensicsimilarity/) for information and interactive demos!
 
 ## Prerequisites 
 *  python 3
 *  python packages:
-    *  tensorflow
-    *  numpy
+    *  tensorflow 1.14.0
+    *  numpy 1.16.4
     *  tqdm
+    *  igraph 0.8.2
+    
 * optional recommended python packages:
     *  jupyter notebook (for working with example scripts)
     *  matplotlib (for loading images in the examples)
+    *  cairocffi 1.1.0 (for generating plot examples)
     *  pillow (for loading JPEG images)
+    *  scikit-learn 0.22.1 (for metrics calculation)
 
 ## Getting Started
 
-Use the "calculate_forensic_similarity" definition in forensic_similarity.py to calculate the forensic similarity between two image patches.
+Please see the [jupyter notebook examples](https://github.com/lucamaiano/forensic_similarity_graph/tree/main/notebook) to get started.
 
-Please see the [jupyter notebook examples](https://gitlab.com/MISLgit/forensic-similarity-for-digital-images/tree/master/examples) for how to use the forensic similarity code.
+The "src" folder contains all the code that you need to run the project. To begin, create a "data" folder in the main directory of this project and paste your dataset. Then, you can run the project and change some basic configuration inside the "test.py" file.
 
-## Cite this code
-If you are using this code for academic research, please cite this paper:
 
-Mayer, Owen, and Matthew C. Stamm. "Forensic Similarity for Digital Images." *IEEE Transactions on Information Forensics and Security* (2019).
+## Cite the original paper
+For more information regarding this work, please refear to the original paper.
 
 bibtex:
 ```
-@article{mayer2019similarity,
-  title={Forensic Similarity for Digital Images},
+@article{mayer2019forensicgraph,
+  title={Exposing Fake Images with Forensic Similarity Graphs},
   author={Mayer, Owen and Stamm, Matthew C},
-  journal={IEEE Transactions on Information Forensics and Security},
-  year={2019},
-  publisher={IEEE}
+  journal={arXiv preprint arXiv:1912.02861},
+  year={2019}
 }
 ```

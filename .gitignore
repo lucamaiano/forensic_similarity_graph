@@ -8,3 +8,7 @@ data/
 notebook/examples/
 
 output/
+
+.DS_Store
+
+notebook/.ipynb_checkpoints/
