@@ -4,53 +4,25 @@ import forensic_similarity as forsim  # forensic similarity tool
 from src.utils.blockimage import tile_image  # function to tile image into blocks
 import matplotlib.pyplot as plt
 from sklearn import metrics
+from scipy import interp
 import numpy as np
 import random
 from itertools import cycle
 
 
-def plot_roc_curve(fpr, tpr, roc_auc, n_classes=2, lw=2):
-    # First aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
-
-    # Then interpolate all ROC curves at this points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(n_classes):
-        mean_tpr += metrics.interp(all_fpr, fpr[i], tpr[i])
-
-    # Finally average it and compute AUC
-    mean_tpr /= n_classes
-
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = metrics.auc(fpr["macro"], tpr["macro"])
-
-    # Plot all ROC curves
-    plt.figure()
-    plt.plot(fpr["micro"], tpr["micro"],
-             label='micro-average ROC curve (area = {0:0.2f})'
-                   ''.format(roc_auc["micro"]),
-             color='deeppink', linestyle=':', linewidth=4)
-
-    plt.plot(fpr["macro"], tpr["macro"],
-             label='macro-average ROC curve (area = {0:0.2f})'
-                   ''.format(roc_auc["macro"]),
-             color='navy', linestyle=':', linewidth=4)
-
-    colors = cycle(['aqua', 'darkorange', 'cornflowerblue'])
-    for i, color in zip(range(n_classes), colors):
-        plt.plot(fpr[i], tpr[i], color=color, lw=lw,
-                 label='ROC curve of class {0} (area = {1:0.2f})'
-                       ''.format(i, roc_auc[i]))
-
+def plot_roc_curve(fpr_spectral, tpr_spectral, fpr_modularity, tpr_modularity, name='../output/roc_curve.png', n_classes=2, lw=2):
+    plt.plot(fpr_spectral, tpr_spectral, label="Spectral ROC curve")
+    plt.plot(fpr_modularity, tpr_modularity, label="Modularity ROC curve")
     plt.plot([0, 1], [0, 1], 'k--', lw=lw)
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Some extension of Receiver operating characteristic to multi-class')
+    plt.title('Receiver operating characteristic')
     plt.legend(loc="lower right")
     plt.show()
+    plt.savefig(name)
+
 
 
 
@@ -61,7 +33,8 @@ if __name__ == '__main__':
     y_true = np.array([], dtype=int)
 
     """ 0) Load images """
-    test_imgs = list(glob.iglob(root_dir))[:100]
+    test_imgs = list(glob.iglob(root_dir))
+
     random.shuffle(test_imgs)
     processed = 0
     for test_img in test_imgs:
@@ -111,10 +84,11 @@ if __name__ == '__main__':
     fpr_spectral, tpr_spectral, thresholds_spectral = metrics.roc_curve(y_true, spectral_preds, pos_label=1)
     auc_spectral = metrics.roc_auc_score(y_true, spectral_preds)
     print(f'Spectral\n fpr: {fpr_spectral}\n tpr: {tpr_spectral}\n tau: {thresholds_spectral}\n auc: {auc_spectral}')
-    plot_roc_curve(fpr_spectral, tpr_spectral, auc_spectral)
 
     fpr_modularity, tpr_modularity, thresholds_modularity = metrics.roc_curve(y_true, modularity_preds, pos_label=1)
     auc_modularity = metrics.roc_auc_score(y_true, modularity_preds)
     print(f'Spectral\n fpr: {fpr_modularity}\n tpr: {tpr_modularity}\n tau: {thresholds_modularity}\n auc: {auc_modularity}')
-    plot_roc_curve(fpr_modularity, tpr_modularity, auc_modularity)
 
+    print(f"y_true: {y_true}")
+
+    plot_roc_curve(fpr_modularity, tpr_modularity, fpr_modularity, tpr_modularity, name='../output/roc_curve.png')
